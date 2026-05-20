@@ -10,10 +10,13 @@
         "filament/filament": "^5.4",
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
-        "maatwebsite/excel": "^3.1"
+        "maatwebsite/excel": "^3.1",
+        "phpoffice/phpspreadsheet": "^1.30.4"
     },
     "require-dev": {
+        "dbrekelmans/bdi": "^1.4",
         "fakerphp/faker": "^1.23",
+        "laravel/dusk": "^8.6",
         "laravel/pail": "^1.2.5",
         "laravel/pint": "^1.27",
         "mockery/mockery": "^1.6",

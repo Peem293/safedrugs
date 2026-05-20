@@ -3,134 +3,235 @@
 namespace App\Services;
 
 use App\Models\Obat;
-use Facebook\WebDriver\WebDriverBy;
+use App\Models\StockOnhand;
+use Facebook\WebDriver\Chrome\ChromeOptions;
+use Facebook\WebDriver\Remote\RemoteWebDriver;
+use Facebook\WebDriver\Remote\DesiredCapabilities;
 use Facebook\WebDriver\WebDriverKeys;
-use Symfony\Component\Panther\Client;
+use Facebook\WebDriver\WebDriverBy;
+use Symfony\Component\DomCrawler\Crawler;
+use Carbon\Carbon;
 
 class ScraperService
 {
     /**
-     * Melakukan Otomatisasi Login SIMRS via Headless Browser (Panther)
-     * dan mengambil data HTML halaman tujuan.
+     * Mengambil data stok obat dari SIMRS Hermina Solo, menyimpannya per batch,
+     * dan otomatis memperbarui total stok kumulatif di data master obat.
+     * Mengatasi duplikasi nomor batch dengan akumulasi penjumlahan stok otomatis.
      */
     public function ambilDataSimrs(string $username, string $password): array
     {
-        // 1. Definisikan letak file biner chromedriver.exe hasil unduhan manual Anda
-        $_SERVER['PANTHER_CHROME_DRIVER_BINARY'] = base_path('chromedriver.exe');
+        // Membebaskan batas waktu eksekusi PHP agar tidak timeout saat perulangan obat banyak
+        set_time_limit(0);
 
-        // bypass kendala hak akses sandbox lokal Windows Laragon
-        $_SERVER['PANTHER_NO_SANDBOX'] = 1;
+        // 1. Jalankan ChromeDriver Laragon secara mandiri di background port 9515
+        $chromeDriverPath = 'D:\\laragon\\www\\safedrugs\\chromedriver.exe';
 
-        // 2. Inisialisasi Instance Headless Chrome Client
-        //$client = Client::createChromeClient();
-        // --- NON-HEADLESS CONFIGURATION ---
-        // Dengan memaksa nilainya menjadi kosong, Panther tidak akan mengirimkan parameter '--headless' ke Chrome Driver
-        $_SERVER['PANTHER_NO_HEADLESS'] = 1;
+        // Memastikan proses chromedriver lama ditutup terlebih dahulu agar tidak bentrok port
+        exec('taskkill /F /IM chromedriver.exe 2>nul');
 
-        // 2. Inisialisasi Instance Chrome Client dengan argumen penunjang visual
-        // Parameter kedua dikosongkan agar mematuhi aturan penonaktifan headless di atas
-        $client = Client::createChromeClient(null, [
-            '--start-maximized',           // Membuka jendela Chrome langsung dalam posisi penuh (Maximize)
-            '--disable-gpu',               // Mematikan akselerasi hardware grafis agar enteng
-            '--ignore-certificate-errors'  // Abaikan jika sertifikat SSL lokal IP rumah sakit bermasalah
+        // Jalankan biner driver baru di Windows background
+        pclose(popen("start /B " . $chromeDriverPath . " --port=9515 > nul 2>&1", "r"));
+
+        // Jeda 2 detik menjamin server driver siap menerima jabat tangan koneksi
+        sleep(2);
+
+        // 2. Susun konfigurasi opsi Google Chrome murni
+        $options = new ChromeOptions();
+        $options->addArguments([
+            '--disable-gpu',
+            '--ignore-certificate-errors',
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-extensions',
+            '--start-maximized'
         ]);
+
+        $capabilities = DesiredCapabilities::chrome();
+        $capabilities->setCapability(ChromeOptions::CAPABILITY, $options);
+
+        $hasilScrapingSemuaObat = [];
+
         try {
-            // 3. Buka URL Utama Portal Login SIMRS
-            $client->request('GET', 'http://10.20.111.33/');
+            // 3. Hubungkan RemoteWebDriver ke instansiasi ChromeDriver mandiri tadi
+            $driver = RemoteWebDriver::create('http://localhost:9515', $capabilities);
 
-            // 4. Amankan antrean: Tunggu hingga komponen input username ter-render di browser
-            $client->waitFor('#Content1_ASPxRoundPanel1_txtUser_I');
+            // =================================================================
+            // PROSES ALUR OTOMATISASI SIMRS HERMINA SOLO
+            // =================================================================
 
-            // --- PROSES OTOMATISASI FORM LOGIN (XPATH) ---
+            // A. Buka URL Utama Portal Login SIMRS
+            $driver->get('http://10.20.111.33/');
+            sleep(3);
 
-            // Langkah A: Temukan input field Username dan ketikkan nilainya
-            $usernameField = $client->getWebDriver()->findElement(
-                WebDriverBy::xpath('//*[@id="Content1_ASPxRoundPanel1_txtUser_I"]')
-            );
-            $usernameField->sendKeys($username);
+            // B. Jalankan Pengisian Form Login
+            $driver->findElement(WebDriverBy::id('Content1_ASPxRoundPanel1_txtUser_I'))->sendKeys($username);
+            $driver->findElement(WebDriverBy::id('Content1_ASPxRoundPanel1_txtPassword_I'))->sendKeys($password);
+            $driver->findElement(WebDriverBy::id('Content1_ASPxRoundPanel1_btnLogin_CD'))->click();
 
-            // Langkah B: Temukan input field Password dan ketikkan nilainya
-            $passwordField = $client->getWebDriver()->findElement(
-                WebDriverBy::xpath('//*[@id="Content1_ASPxRoundPanel1_txtPassword_I"]')
-            );
-            $passwordField->sendKeys($password);
-
-            // Langkah C: Temukan Elemen Tombol/Button Sign In kemudian picu aksi Klik
-            $signInButton = $client->getWebDriver()->findElement(
-                WebDriverBy::xpath('//*[@id="Content1_ASPxRoundPanel1_btnLogin_CD"]')
-            );
-            $signInButton->click();
-
-            // 5. Beri jeda 4 detik agar browser menyelesaikan handshake session cookie di server
+            // Jeda tunggu pemrosesan session cookie server
             sleep(4);
 
-            // 2. NAVIGASI KE HALAMAN REKAP / FILTER DATA OBAT
-            $client->request('GET', 'http://10.20.111.33/Drug/StokItem.aspx');
+            // C. Navigasi ke Halaman Manajemen Stok Item Obat
+            $driver->get('http://10.20.111.33/Drug/StokItem.aspx');
+            sleep(3);
 
-            // Tunggu sampai field filter kode item muncul di layar browser
-            $client->waitFor('#Content1_Content1_panelFilter_txtKodeItemFilter_I', 10);
-
-            // 3. AMBIL DATA SEMUA OBAT DARI DATABASE APLIKASI ANDA
+            // D. Ambil Data Semua Obat Dari Database Lokal Aplikasi Anda
             $daftarObat = Obat::all();
 
-            $hasilScrapingSemuaObat = [];
-
-            // 4. PERULANGAN UNTUK MENGISI KODE OBAT OTOMATIS
+            // E. Perulangan Otomatisasi Input Kode Obat
             foreach ($daftarObat as $obat) {
-                // Ambil kode obat dari properti database Anda (misal kolomnya bernama 'kode_obat' atau 'kd_obat')
-                // SESUAIKAN 'kode_obat' di bawah ini dengan nama kolom asli di tabel obat Anda
                 $kodeObatDatabase = $obat->kode_obat;
 
-                // Temukan field filter kode obat di browser
-                $kdObatField = $client->getWebDriver()->findElement(
-                    WebDriverBy::xpath('//*[@id="Content1_Content1_panelFilter_txtKodeItemFilter_I"]')
-                );
+                // Temukan field filter pencarian kode obat
+                $kdObatField = $driver->findElement(WebDriverBy::id('Content1_Content1_panelFilter_txtKodeItemFilter_I'));
 
-                // Bersihkan field filter terlebih dahulu sebelum mengetik kode baru (agar tidak menumpuk)
-                // Karena DevExpress kadang kebal terhadap ->clear(), kita gunakan trik backspace/select all
+                // Bersihkan komponen filter bawaan DevExpress menggunakan trik keyboard aksi cepat
                 $kdObatField->sendKeys(WebDriverKeys::CONTROL . 'a');
                 $kdObatField->sendKeys(WebDriverKeys::DELETE);
 
-                // ISI OTOMATIS field dengan kode obat dari database saat ini
+                // Masukkan kode obat loop saat ini
                 $kdObatField->sendKeys($kodeObatDatabase);
 
-            // Langkah C: Temukan Elemen Tombol/Button Sign In kemudian picu aksi Klik
-            $filterButton = $client->getWebDriver()->findElement(
-                WebDriverBy::xpath('//*[@id="Content1_Content1_panelFilter_btnTampilkan_CD"]')
-            );
-            $filterButton->click();
+                // Klik Tombol Tampilkan data obat
+                $driver->findElement(WebDriverBy::id('Content1_Content1_panelFilter_btnTampilkan_CD'))->click();
 
+                // Jeda memberikan waktu bagi AJAX DevExpress untuk merender ulang baris tabel baru
+                sleep(4);
 
-                // Beri jeda 2 detik agar website SIMRS selesai memuat data filter obat tersebut
-                sleep(2);
+                // F. Ekstraksi Data Tabel Menggunakan DomCrawler Symfony
+                try {
+                    $htmlSekarang = $driver->getPageSource();
+                    $crawler = new Crawler($htmlSekarang);
 
-                // Ambil HTML yang sudah terfilter khusus untuk obat ini
-                $htmlPerObat = $client->refreshCrawler()->html();
+                    // Menargetkan baris data (dxgvDataRow) yang berada di dalam kontainer #Content1_Content1_gridStok
+                    $rows = $crawler->filter('#Content1_Content1_gridStok tr[id*="DXDataRow"]');
 
-                // Simpan hasilnya ke dalam array berdasarkan id obat
-                $hasilScrapingSemuaObat[$obat->id] = [
-                    'kode' => $kodeObatDatabase,
-                    'html' => $htmlPerObat
-                ];
+                    $batchDetails = [];
 
-                // Catatan Akademis Bab IV: Di titik ini Anda bisa langsung menyisipkan fungsi DOM Parser
-                // untuk mengambil angka pemakaian bulanan obat tersebut dan menyimpannya ke tabel 'rekap_pemakaian_bulanan'
+                    if ($rows->count() > 0) {
+
+                        // REVISI: Bersihkan semua data batch lama khusus obat ini agar proses kalkulasi murni dimulai dari 0
+                        StockOnhand::where('obat_id', $obat->id)->delete();
+
+                        $rows->each(function ($row) use (&$batchDetails, $obat) {
+                            $koloms = $row->filter('td');
+
+                            // Pastikan jumlah kolom mencukupi sebelum membaca indeks kolom
+                            if ($koloms->count() > 10) {
+                                // Konversi Berbasis Kredensial XPath Riil (Indeks 0-based)
+                                $stokRaw  = $koloms->eq(7)->text();  // td[8] -> Indeks 7 (On Hand Stock)
+                                $expRaw   = $koloms->eq(9)->text();  // td[10] -> Indeks 9 (Expired Date)
+                                $batchRaw = $koloms->eq(10)->text(); // td[11] -> Indeks 10 (Batch Number)
+
+                                // --- PERBAIKAN FORMULASI ANGKA STOK DESIMAL ---
+                                // 1. Hilangkan tanda koma pemisah ribuan (misal: 6,206.00 menjadi 6206.00)
+                                $cleanStok = str_replace(',', '', trim($stokRaw));
+
+                                // 2. Konversi ke float agar desimal terbaca benar, lalu bulatkan menjadi integer murni
+                                $stokAngka = (int) floatval($cleanStok);
+
+                                // Bersihkan string nomor batch dari spasi atau karakter kosong bawaan html
+                                $cleanBatch = trim($batchRaw);
+
+                                // Pastikan tidak memasukkan baris kosong atau teks petunjuk kosong
+                                if ($cleanBatch !== '' && $cleanBatch !== 'Tidak ada data' && $cleanBatch !== '&nbsp;') {
+
+                                    // 3. Konversi format tanggal SIMRS (DD/MM/YYYY) ke format standar database PostgreSQL (YYYY-MM-DD)
+                                    $dateFormatted = null;
+                                    try {
+                                        $dateFormatted = Carbon::createFromFormat('d/m/Y', trim($expRaw))->format('Y-m-d');
+                                    } catch (\Exception $e) {
+                                        $dateFormatted = now()->format('Y-m-d'); // Fallback aman jika parsing error
+                                    }
+
+                                    // 4. REVISI UTAMA: Cek apakah pada baris iterasi sebelumnya di obat yang sama nomor batch ini sudah tersimpan
+                                    $existingBatch = StockOnhand::where('obat_id', $obat->id)
+                                        ->where('batch_no', $cleanBatch)
+                                        ->first();
+
+                                    if ($existingBatch) {
+                                        // JIKA DUNEMUKAN DUPLIKASI BATCH: Lakukan Akumulasi Penjumlahan Stok
+                                        $existingBatch->update([
+                                            'stock_on_hand'   => $existingBatch->stock_on_hand + $stokAngka,
+                                            'last_scraped_at' => now()
+                                        ]);
+                                    } else {
+                                        // JIKA BATCH BARU: Jalankan insert baris record baru
+                                        StockOnhand::create([
+                                            'obat_id'         => $obat->id,
+                                            'batch_no'        => $cleanBatch,
+                                            'exp_date'        => $dateFormatted,
+                                            'stock_on_hand'   => $stokAngka,
+                                            'last_scraped_at' => now()
+                                        ]);
+                                    }
+
+                                    $batchDetails[] = [
+                                        'batch_number' => $cleanBatch,
+                                        'expired_date' => trim($expRaw),
+                                        'stok_simrs'   => $stokAngka
+                                    ];
+                                }
+                            }
+                        });
+
+                        // 5. AUTOMATIC KUMULATIF UPDATE: Hitung total stok dari semua batch obat saat ini
+                        $totalStokKumulatif = StockOnhand::where('obat_id', $obat->id)->sum('stock_on_hand');
+
+                        // 6. Jalankan sinkronisasi update nilai ke tabel master obats
+                        $obat->update([
+                            'stock' => $totalStokKumulatif
+                        ]);
+                    } else {
+                        // Jika obat tidak memiliki sisa batch aktif di SIMRS, hapus batch lokal dan set master lokal menjadi 0
+                        StockOnhand::where('obat_id', $obat->id)->delete();
+                        $obat->update([
+                            'stock' => 0
+                        ]);
+                    }
+
+                    // Tambahkan hasil iterasi obat saat ini ke array utama untuk return API / log
+                    $hasilScrapingSemuaObat[] = [
+                        'id_obat_lokal' => $obat->id,
+                        'kode_obat'     => $kodeObatDatabase,
+                        'nama_obat'     => $obat->nama_obat,
+                        'jumlah_batch'  => count($batchDetails),
+                        'data_batch'    => $batchDetails
+                    ];
+
+                } catch (\InvalidArgumentException $e) {
+                    $hasilScrapingSemuaObat[] = [
+                        'id_obat_lokal' => $obat->id,
+                        'kode_obat'     => $kodeObatDatabase,
+                        'nama_obat'     => $obat->nama_obat,
+                        'status'        => 'Gagal Parsing',
+                        'error'         => $e->getMessage()
+                    ];
+                }
             }
 
+            // Tutup sesi browser secara bersih setelah seluruh perulangan rampung
+            $driver->quit();
+            exec('taskkill /F /IM chromedriver.exe 2>nul');
+
             return [
-                'status' => 'sukses',
-                'data'   => $hasilScrapingSemuaObat
+                'status'    => 'sukses',
+                'timestamp' => now()->toIso8601String(),
+                'results'   => $hasilScrapingSemuaObat
             ];
 
         } catch (\Exception $e) {
-            // Tangkap pesan error jika XPath tidak ditemukan atau koneksi drop
+            // Amankan penutupan driver jika skrip mengalami kegagalan/interupsi di tengah jalan
+            if (isset($driver)) {
+                $driver->quit();
+            }
+            exec('taskkill /F /IM chromedriver.exe 2>nul');
+
             return [
                 'status' => 'gagal',
                 'error'  => $e->getMessage()
             ];
-        } finally {
-            // PENTING: Selalu matikan background process chrome agar memory RAM tidak membengkak
-            $client->quit();
         }
     }
 }

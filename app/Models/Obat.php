@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\StockOnhand;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Obat extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'kode_obat',
         'nama_obat',
@@ -26,5 +30,10 @@ class Obat extends Model
     public function rekapBulanans()
     {
         return $this->hasMany(RekapPemakaianBulanan::class, 'obat_id');
+    }
+
+    public function stockOnhands(): HasMany
+    {
+        return $this->hasMany(StockOnhand::class, 'obat_id', 'id');
     }
 }

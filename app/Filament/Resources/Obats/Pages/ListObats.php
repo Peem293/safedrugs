@@ -11,7 +11,7 @@ use Filament\Notifications\Notification;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\ObatImport;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Http; // Memanfaatkan HTTP Client bawaan Laravel murni
+use Illuminate\Support\Facades\Http;
 use App\Models\Obat;
 
 class ListObats extends ListRecords
@@ -23,7 +23,7 @@ class ListObats extends ListRecords
         return [
             CreateAction::make(),
 
-            // 1. TOMBOL IMPORT EXCEL (Tetap Ada Sebagai Cadangan Aman)
+            // 1. TOMBOL IMPORT EXCEL (Aktif Utama)
             Action::make('import')
                 ->label('Import Excel')
                 ->icon('heroicon-o-arrow-up-tray')
@@ -51,7 +51,9 @@ class ListObats extends ListRecords
                     $this->redirect(static::$resource::getUrl('index'));
                 }),
 
-            // 2. TOMBOL SINKRONISASI SCRAPING (Bebas Kompatibilitas PHP / Tanpa Composer)
+            /* ====================================================================
+            2. TOMBOL SINKRONISASI SCRAPING (DI-NONAKTIFKAN UNTUK PEMBARUAN FITUR NANTI)
+            ====================================================================
             Action::make('syncSimrs')
                 ->label('Sinkronisasi SIMRS (Scraping)')
                 ->icon('heroicon-o-arrow-path')
@@ -63,17 +65,14 @@ class ListObats extends ListRecords
                 ->action(function () {
                     try {
                         // --- LANGKAH 1: SIMULASI LOGIN & RETRIEVE COOKIE ---
-                        // Mengirimkan request POST login ke form SIMRS Anda
                         $loginResponse = Http::asForm()->post('http://10.20.111.33/', [
                             'username' => '02',
-                            'password' => '', // Ganti dengan password asli
+                            'password' => '',
                         ]);
 
-                        // Mengambil data cookie session agar bisa mengakses halaman berproteksi login
                         $cookies = $loginResponse->cookies();
 
                         // --- LANGKAH 2: REQUEST HALAMAN MASTER STOK ---
-                        // Membuka halaman tabel sediaan obat dengan menyertakan cookie login tadi
                         $webResponse = Http::withCookies($cookies, 'simrs.hermina.local')
                             ->get('http://10.20.111.33/Drug/StokItem.aspx');
 
@@ -81,16 +80,13 @@ class ListObats extends ListRecords
                             throw new \Exception('Gagal memuat halaman data sediaan SIMRS.');
                         }
 
-                        $htmlContent = $webResponse->body(); // Mendapatkan raw HTML dokumen
+                        $htmlContent = $webResponse->body();
 
                         // --- LANGKAH 3: DOM PARSING HTML MURNI ---
-                        // Menggunakan DOMDocument bawaan internal PHP (Sangat aman untuk PHP 8.1 Anda)
                         $dom = new \DOMDocument();
-                        // Mengabaikan warning jika struktur HTML SIMRS tidak valid/kurang standar semantik
                         @$dom->loadHTML($htmlContent);
                         $xpath = new \DOMXPath($dom);
 
-                        // Query mengambil baris elemen data (tr) pada tbody tabel SIMRS
                         $rows = $xpath->query('//table/tbody/tr');
 
                         $countUpsert = 0;
@@ -99,28 +95,23 @@ class ListObats extends ListRecords
                         foreach ($rows as $row) {
                             $cols = $xpath->query('.//td', $row);
 
-                            // Ekstraksi nilai teks kolom berdasarkan urutan index (Mulai dari 0)
                             $itemCode = $cols->item(1) ? trim($cols->item(1)->nodeValue) : null;
                             $itemName = $cols->item(2) ? trim($cols->item(2)->nodeValue) : null;
                             $unit     = $cols->item(3) ? trim($cols->item(3)->nodeValue) : '-';
                             $stockRaw = $cols->item(7) ? trim($cols->item(7)->nodeValue) : '0';
 
-                            // Menyaring baris kosong atau footer hantu sisa render web
                             if (empty($itemCode) || empty($itemName)) {
                                 continue;
                             }
 
-                            // Proteksi duplikasi kode obat ganda dalam satu iterasi penambangan data
                             if (in_array($itemCode, $processedCodes)) {
                                 continue;
                             }
                             $processedCodes[] = $itemCode;
 
-                            // Pembersihan format regional numerik (contoh teks: 1.226,00 -> 1226.00)
                             $cleanStock = str_replace('.', '', $stockRaw);
                             $cleanStock = str_replace(',', '.', $cleanStock);
 
-                            // Simpan atau sinkronkan langsung ke database lokal aplikasi skripsi Anda
                             Obat::updateOrCreate(
                                 ['kode_obat' => $itemCode],
                                 [
@@ -133,14 +124,12 @@ class ListObats extends ListRecords
                             $countUpsert++;
                         }
 
-                        // Kirim Toast Notification sukses di layar Filament
                         Notification::make()
                             ->title('Scraping HTML Berhasil')
                             ->body("Berhasil menyelaraskan {$countUpsert} data master obat dari web SIMRS.")
                             ->success()
                             ->send();
 
-                        // Paksa refresh halaman tabel Filament
                         $this->redirect(static::$resource::getUrl('index'));
 
                     } catch (\Exception $e) {
@@ -151,6 +140,8 @@ class ListObats extends ListRecords
                             ->send();
                     }
                 }),
+            ====================================================================
+            */
         ];
     }
 }
