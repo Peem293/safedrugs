@@ -43,10 +43,38 @@ class StockOnhand extends Model
         'last_scraped_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        // 1. Memicu kalkulasi ulang setelah data batch sukses dihapus (Single Delete)
+        static::deleted(function (StockOnhand $stockOnhand) {
+            static::hitungUlangStokMaster($stockOnhand->obat_id);
+        });
+
+        // 2. Memicu kalkulasi ulang setelah terjadi perubahan angka lewat Form Edit manual (Opsional & Mengamankan)
+        static::saved(function (StockOnhand $stockOnhand) {
+            static::hitungUlangStokMaster($stockOnhand->obat_id);
+        });
+    }
+
     /**
-     * Relasi Balikan (Inverse Relationship): Setiap satu baris stok batch
-     * pasti dimiliki oleh satu data Obat induk.
-     * * Di aplikasi/view, Anda bisa memanggilnya dengan cara: $stok->obat->nama_obat
+     * Fungsi pembantu untuk menyinkronkan total kuantitas ke tabel master obat
+     */
+    public static function hitungUlangStokMaster(int $obatId): void
+    {
+        $obat = Obat::find($obatId);
+
+        if ($obat) {
+            // Hitung total dari seluruh batch yang tersisa di database untuk obat_id ini
+            $totalStokSekarang = static::where('obat_id', $obatId)->sum('stock_on_hand');
+
+            // Update ke tabel obats
+            $obat->update([
+                'stock' => $totalStokSekarang
+            ]);
+        }
+    }
+
+    /**
      *
      * @return BelongsTo
      */

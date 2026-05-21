@@ -22,10 +22,13 @@ class StockOnhandForm
                     ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->kode_obat} - {$record->nama_obat}")
                     ->required(),
                 TextInput::make('batch_no')
+                    ->label('Batch No')
                     ->required(),
                 DatePicker::make('exp_date')
+                    ->label('Exp Date')
                     ->required(),
                 TextInput::make('stock_on_hand')
+                    ->label('Stock On Hands')
                     ->required()
                     ->numeric()
                     ->default(0),

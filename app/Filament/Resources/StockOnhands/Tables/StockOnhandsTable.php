@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StockOnhands\Tables;
 
+use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -24,12 +25,50 @@ class StockOnhandsTable
                     ->wrap()
                     ->label('Nama Obat'),
                 TextColumn::make('batch_no')
+                    ->label('Batch No')
                     ->searchable(),
                 TextColumn::make('exp_date')
                     ->date()
+                    ->label('Exp Date')
                     ->sortable(),
+                TextColumn::make('exp_status')
+                    ->label('Exp Status')
+                    ->badge()
+                    ->getStateUsing(function ($record) {
+                        if (! $record->exp_date) {
+                            return 'Tidak Ada Data';
+                        }
+
+                        $expDate = Carbon::parse($record->exp_date);
+                        $now = Carbon::now();
+
+                        if ($expDate->isPast()) {
+                            return 'Expired';
+                        }
+
+                        // Menghitung sisa bulan dari sekarang ke tanggal expired
+                        $diffInMonths = $now->diffInMonths($expDate, false);
+
+                        if ($diffInMonths <= 6) {
+                            return 'Soon Expired';
+                        }
+
+                        return 'Aman';
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'Expired' => 'danger',       // Warna Merah
+                        'Soon Expired' => 'warning', // Warna Kuning
+                        'Aman' => 'success',         // Warna Hijau
+                        default => 'gray',
+                    })
+                    ->icons([
+                        'heroicon-m-x-circle' => 'Expired',
+                        'heroicon-m-exclamation-triangle' => 'Soon Expired',
+                        'heroicon-m-check-circle' => 'Aman',
+                    ]),
                 TextColumn::make('stock_on_hand')
                     ->numeric()
+                    ->label('Stock On Hands')
                     ->sortable(),
                 TextColumn::make('last_scraped_at')
                     ->dateTime()
@@ -48,7 +87,7 @@ class StockOnhandsTable
                 //
             ])
             ->recordActions([
-                EditAction::make(),
+                //EditAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

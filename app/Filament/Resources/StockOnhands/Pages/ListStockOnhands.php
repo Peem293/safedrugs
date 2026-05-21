@@ -21,7 +21,7 @@ class ListStockOnhands extends ListRecords
                 ->color('success')
                 ->requiresConfirmation()
                 ->modalHeading('Sinkronisasi Data SIMRS')
-                ->modalDescription('Sistem akan menjalankan robot otomatisasi (Scraper) untuk mengambil data batch dan stok terbaru langsung dari SIMRS Hermina Solo. Proses ini mungkin memakan waktu beberapa saat. Lanjutkan?')
+                ->modalDescription('Sistem akan menjalankan robot otomatisasi (Scraper) untuk mengambil data batch dan stok terbaru langsung dari SIMRS. Proses ini mungkin memakan waktu beberapa saat. Lanjutkan?')
                 ->modalSubmitActionLabel('Ya, Mulai Sinkronisasi')
                 ->action(function (ScraperService $scraperService) {
                     $usernameSimrs = '020150702';

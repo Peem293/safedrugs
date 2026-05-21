@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\StockOnhands;
 
 use App\Filament\Resources\StockOnhands\Pages\CreateStockOnhand;
-use App\Filament\Resources\StockOnhands\Pages\EditStockOnhand;
+//use App\Filament\Resources\StockOnhands\Pages\EditStockOnhand;
 use App\Filament\Resources\StockOnhands\Pages\ListStockOnhands;
 use App\Filament\Resources\StockOnhands\Schemas\StockOnhandForm;
 use App\Filament\Resources\StockOnhands\Tables\StockOnhandsTable;
@@ -47,7 +47,7 @@ class StockOnhandResource extends Resource
         return [
             'index' => ListStockOnhands::route('/'),
             'create' => CreateStockOnhand::route('/create'),
-            'edit' => EditStockOnhand::route('/{record}/edit'),
+            //'edit' => EditStockOnhand::route('/{record}/edit'),
         ];
     }
 }

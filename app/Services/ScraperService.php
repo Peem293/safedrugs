@@ -38,11 +38,13 @@ class ScraperService
 
         // 2. Susun konfigurasi opsi Google Chrome murni
         $options = new ChromeOptions();
+        $options = new ChromeOptions();
         $options->addArguments([
-            '--disable-gpu',
+            '--headless=new',               // <--- INI KUNCI UTAMANYA: Berjalan di background tanpa GUI
+            '--disable-gpu',                // Wajib di server Linux untuk menghemat resource
             '--ignore-certificate-errors',
-            '--no-sandbox',
-            '--disable-dev-shm-usage',
+            '--no-sandbox',                 // Wajib di Linux agar tidak error permission/root user
+            '--disable-dev-shm-usage',      // Wajib di Linux agar Chrome tidak crash jika RAM server kecil
             '--disable-extensions',
             '--start-maximized'
         ]);
