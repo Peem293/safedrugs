@@ -3,14 +3,15 @@
 namespace App\Filament\Resources\Obats\Pages;
 
 use App\Filament\Resources\Obats\ObatResource;
-use Filament\Actions\CreateAction;
-use Filament\Actions\Action;
-use Filament\Forms\Components\FileUpload;
-use Filament\Resources\Pages\ListRecords;
-//use Filament\Notifications\Notification;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\ObatImport;
+use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
+use Filament\Forms\Components\FileUpload;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\ListRecords;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 //use Illuminate\Support\Facades\Http;
 //use App\Models\Obat;
 
@@ -49,6 +50,39 @@ class ListObats extends ListRecords
                 ->successNotificationTitle('Import data obat berhasil!')
                 ->after(function () {
                     $this->redirect(static::$resource::getUrl('index'));
+                }),
+
+            // 2. TOMBOL KALKULASI MANUAL BUFFER STOCK (Baru untuk Pengujian/Sidang)
+            Action::make('kalkulasiBuffer')
+                ->label('Kalkulasi Otomatis Buffer')
+                ->icon('heroicon-o-cpu-chip')
+                ->color('success')
+                ->requiresConfirmation() // Memberikan pop-up konfirmasi sebelum eksekusi
+                ->modalHeading('Kalkulasi Ulang Buffer & Min Stock')
+                ->modalDescription('Sistem akan menghitung ulang nilai Safety Stock dan Reorder Point secara dinamis berdasarkan tren pemakaian 6 bulan terakhir. Lanjutkan?')
+                ->modalSubmitActionLabel('Mulai Hitung')
+                ->action(function () {
+                    try {
+                        // Memanggil console command 'buffer:automate' yang sudah kita buat sebelumnya
+                        Artisan::call('buffer:automate');
+
+                        // Memunculkan notifikasi sukses pop-up di kanan atas Filament
+                        Notification::make()
+                            ->title('Kalkulasi Berhasil!')
+                            ->body('Nilai buffer stock dan min stock seluruh produk telah disesuaikan dengan tren pemakaian terbaru.')
+                            ->success()
+                            ->send();
+
+                        // Refresh halaman agar angka barunya langsung muncul di tabel master obat
+                        $this->redirect(static::$resource::getUrl('index'));
+
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Kalkulasi Gagal')
+                            ->body('Terjadi kendala sistem: ' . $e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
                 }),
 
             /* ====================================================================
