@@ -10,7 +10,6 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-//use Filament\Resources\Pages\ManageRecords;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +20,7 @@ class ManageProsesPrediksis extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            // 1. TOMBOL MULAI PROSES PREDIKSI (TETAP SAMA)
             Action::make('prosesPrediksiModal')
                 ->label('Mulai Proses Prediksi')
                 ->icon('heroicon-m-cpu-chip')
@@ -43,18 +43,13 @@ class ManageProsesPrediksis extends ListRecords
                 ])
                 ->action(function (array $data) {
                     $bulanTarget = $data['bulan_target'];
-
-                    // Simpan pilihan bulan saat ini ke dalam Session agar tabel tahu apa yang harus ditampilkan
                     session(['tampilkan_bulan_prediksi' => $bulanTarget]);
 
-                    // Cek apakah data bulan tersebut sudah pernah dihitung sebelumnya di database
                     $apakahSudahAda = Prediksi::where('bulan_tahun_prediksi', $bulanTarget)->exists();
 
                     if (! $apakahSudahAda) {
-                        // Jika BELUM ADA, jalankan core logika matematika utama
                         static::jalankanKalkulasiOtomatis($bulanTarget);
                     } else {
-                        // Jika SUDAH ADA, lewati perhitungan dan langsung beri notifikasi sukses muat data
                         Notification::make()
                             ->title('Data Ditemukan!')
                             ->body("Menampilkan data prediksi periode " . Carbon::parse($bulanTarget)->translatedFormat('F Y') . " langsung dari database (Tanpa hitung ulang).")
@@ -62,38 +57,49 @@ class ManageProsesPrediksis extends ListRecords
                             ->send();
                     }
                 }),
+
+            // 2. TOMBOL CETAK PDF (PERBAIKAN FITUR OPEN IN NEW TAB FILAMENT)
+            Action::make('cetakPdf')
+                ->label('Cetak Hasil Prediksi (PDF)')
+                ->icon('heroicon-m-printer')
+                ->color('danger')
+                // Tombol hanya muncul jika data bulan aktif ada di database
+                ->visible(function () {
+                    $bulanActive = session('tampilkan_bulan_prediksi');
+                    if (! $bulanActive) {
+                        return false;
+                    }
+                    return Prediksi::where('bulan_tahun_prediksi', $bulanActive)->exists();
+                })
+                // LANGKAH AMAN: Mengarahkan langsung ke URL route khusus cetak
+                ->url(function () {
+                    $bulanActive = session('tampilkan_bulan_prediksi');
+                    return $bulanActive ? route('admin.prediksi.cetak', ['bulan' => $bulanActive]) : '#';
+                })
+                // Mencegah halaman utama refresh/kosong kembali & memaksa buka tab baru
+                ->openUrlInNewTab(),
         ];
     }
 
     /**
-     * CORE LOGIKA MATEMATIKA LEAST SQUARE & MAPE (DINAMIS AKUMULASI X)
+     * CORE LOGIKA MATEMATIKA LEAST SQUARE & MAPE (TETAP SAMA SEPERTI SEBELUMNYA)
      */
     public static function jalankanKalkulasiOtomatis(string $bulanTarget): void
     {
         $daftarObat = Obat::all();
-
-        // 1. TENTUKAN BATAS AKHIR DATA HISTORIS RIIL (Maret 2026)
-        // Dikunci pada data riil terakhir agar titik pusat (origin) analisis tidak rusak oleh data prediksi
         $bulanHistoriTerakhir = '2026-03';
 
-        // 2. HITUNG JARAK BULAN SECARA DINAMIS (AKUMULASI +2 KARENA MATRIKS GANJIL KELIPATAN 2)
         $start = Carbon::parse($bulanHistoriTerakhir . '-01');
         $end = Carbon::parse($bulanTarget . '-01');
         $selisihBulan = $start->diffInMonths($end);
 
-        // Pola Perubahan Nilai X Target:
-        // Jika target April (selisih 1 bulan dari Maret) -> X = 5 + (1 * 2) = 7
-        // Jika target Mei   (selisih 2 bulan dari Maret) -> X = 5 + (2 * 2) = 9
-        // Jika target Juni  (selisih 3 bulan dari Maret) -> X = 5 + (3 * 2) = 11
         $nilaiXTarget = 5 + ($selisihBulan * 2);
-
         $matriksX = [-5, -3, -1, 1, 3, 5];
 
         DB::beginTransaction();
 
         try {
             foreach ($daftarObat as $obat) {
-                // Ambil 6 bulan data historis murni (Mundur dari Maret 2026 ke belakang)
                 $historiBulanan = DB::table('rekap_pemakaian_bulanan')
                     ->select('bulan_tahun', DB::raw("SUM(total_jumlah) as total_pakai"))
                     ->where('obat_id', $obat->id)
@@ -109,7 +115,6 @@ class ManageProsesPrediksis extends ListRecords
                     continue;
                 }
 
-                // Kalkulasi Nilai Sigma Least Square
                 $sumY = 0; $sumXY = 0; $sumX2 = 0;
                 for ($i = 0; $i < 6; $i++) {
                     $y = (float) $historiBulanan[$i]->total_pakai;
@@ -123,11 +128,9 @@ class ManageProsesPrediksis extends ListRecords
                 $a = $sumY / 6;
                 $b = $sumX2 > 0 ? ($sumXY / $sumX2) : 0;
 
-                // Hasil Prediksi menggunakan Nilai X Target dinamis yang telah berakumulasi (+2 setiap bulan)
                 $proyeksiY = $a + ($b * $nilaiXTarget);
                 $proyeksiY = $proyeksiY < 0 ? 0 : round($proyeksiY);
 
-                // KALKULASI MAPE EVALUASI (Menguji keakuratan internal pada data riil Maret)
                 $yAktualEvaluasi = (float) $historiBulanan[5]->total_pakai;
                 $dataHistoriMape = $historiBulanan->slice(0, 5)->values();
 

@@ -45,6 +45,13 @@ class ListStockOnhands extends ListRecords
                             ->send();
                     }
                 }),
+
+        Action::make('cetak_report')
+            ->label('Cetak Laporan Stock')
+            ->color('danger')
+            ->icon('heroicon-o-printer')
+            ->url(route('admin.stock-onhands.cetak'))
+            ->openUrlInNewTab(),
         ];
     }
 }
