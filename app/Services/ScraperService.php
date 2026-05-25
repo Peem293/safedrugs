@@ -15,7 +15,7 @@ use Carbon\Carbon;
 class ScraperService
 {
     /**
-     * Mengambil data stok obat dari SIMRS Hermina Solo, menyimpannya per batch,
+     * Mengambil data stok obat dari SIMRS, menyimpannya per batch,
      * dan otomatis memperbarui total stok kumulatif di data master obat.
      * Mengatasi duplikasi nomor batch dengan akumulasi penjumlahan stok otomatis.
      */
@@ -59,7 +59,7 @@ class ScraperService
             $driver = RemoteWebDriver::create('http://localhost:9515', $capabilities);
 
             // =================================================================
-            // PROSES ALUR OTOMATISASI SIMRS HERMINA SOLO
+            // PROSES ALUR OTOMATISASI SIMRS
             // =================================================================
 
             // A. Buka URL Utama Portal Login SIMRS
