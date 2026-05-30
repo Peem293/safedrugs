@@ -8,7 +8,13 @@
         .text-center { text-align: center; }
         .judul { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
         .sub-judul { font-size: 12px; margin-bottom: 15px; color: #555; }
-        hr { border: 0; border-top: 2px dashed #000; margin-bottom: 20px; }
+        hr { border: 0; border-top: 2px dashed #000; margin-bottom: 10px; }
+
+        /* Gaya Tambahan untuk Metadata Cetak */
+        .meta-container { width: 100%; margin-bottom: 20px; font-size: 10px; color: #555; }
+        .meta-table { width: 100%; border: none; border-collapse: collapse; }
+        .meta-table td { border: none; padding: 2px 0; }
+
         .table { width: 100%; border-collapse: collapse; }
         .table th, .table td { border: 1px solid #666; padding: 6px 8px; text-align: left; }
         .table th { background-color: #f5f5f5; font-weight: bold; text-align: center; }
@@ -18,7 +24,31 @@
 
     <div class="text-center judul">LAPORAN HASIL PREDIKSI KEBUTUHAN OBAT</div>
     <div class="text-center sub-judul">APLIKASI SAFEDRUGS — PERIODE PREDIKSI: {{ $bulan }}</div>
+
     <hr>
+
+    <div class="meta-container">
+        <table class="meta-table">
+            <tr>
+                <td width="18%"><strong>Tanggal Proses Prediksi</strong></td>
+                <td width="2%">:</td>
+                <td width="40%">{{ isset($data[0]) ? \Carbon\Carbon::parse($data[0]->created_at)->translatedFormat('d F Y H:i') . ' WIB' : '-' }}</td>
+
+                <td width="15%"><strong>Dicetak Oleh</strong></td>
+                <td width="2%">:</td>
+                <td width="23%">{{ auth()->user()->name }}</td>
+            </tr>
+            <tr>
+                <td><strong>Tanggal Cetak Laporan</strong></td>
+                <td>:</td>
+                <td>{{ \Carbon\Carbon::now()->translatedFormat('d F Y H:i') }} WIB</td>
+
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+        </table>
+    </div>
 
     <table class="table">
         <thead>
@@ -36,13 +66,13 @@
         <tbody>
             @foreach($data as $index => $item)
                 @php
-                    // 1. Ambil data stok langsung dari nama field tabel master obatmu
+                    // 1. Ambil data stok langsung dari nama field tabel master obat
                     $stokSekarang = $item->obat->stock ?? 0;
                     $stokMin      = $item->obat->min_stock ?? 0;
 
                     $hasilPrediksi = $item->hasil_prediksi;
 
-                    // 2. PERBAIKAN RUMUS: Hasil Prediksi dikurangi Stok Riil saat ini (Kekurangan Stok)
+                    // 2. RUMUS: Hasil Prediksi dikurangi Stok Riil saat ini (Kekurangan Stok)
                     $rekomendasi = max(0, $hasilPrediksi - $stokSekarang);
 
                     // 3. Logika Warna & Label Status Stok Peringatan

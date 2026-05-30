@@ -31,7 +31,7 @@ Route::get('/admin/proses-prediksis/cetak/{bulan}', function ($bulan) {
     $bulanTeks = Carbon::parse($bulan)->translatedFormat('F Y');
 
     $data = [
-        'bulan' => $bulanTeks, // Ini akan mengirim teks "April 2026" ke template blade
+        'bulan' => $bulanTeks, // refactor format tanggal "April 2026" ke template blade
         'data' => $hasilPrediksi
     ];
 
@@ -42,7 +42,7 @@ Route::get('/admin/proses-prediksis/cetak/{bulan}', function ($bulan) {
     // Nilai variabel $bulan akan dikonversi menjadi nama bulan bahasa Inggris/Indonesia (Contoh: "April 2026")
     $namaFileOtomatis = 'forcasting Report ' . $bulanTeks;
 
-    // 4. Stream langsung ke browser agar tab cetak preview terbuka otomatis
+    // 4. Stream langsung ke browser tab halaman cetak preview otomatis
     return response($pdf->output())
         ->header('Content-Type', 'application/pdf')
         ->header('Content-Disposition', 'inline; filename="' . $namaFileOtomatis . '.pdf"');
@@ -50,7 +50,7 @@ Route::get('/admin/proses-prediksis/cetak/{bulan}', function ($bulan) {
 
  // Route Cetak aporan StockOnHands
 Route::get('/admin/stock-onhands/cetak', function () {
-    // PERBAIKAN: Ambil data stock on hand lengkap beserta relasi datatable obatnya
+    //Ambil data stock on hand lengkap beserta relasi datatable obatnya
     $stockData = StockOnhand::with('obat')
                     ->orderBy('exp_date', 'asc')
                     ->get();

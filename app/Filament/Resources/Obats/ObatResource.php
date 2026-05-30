@@ -19,7 +19,8 @@ class ObatResource extends Resource
 {
     protected static ?string $model = Obat::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-beaker';
+    //protected static string|BackedEnum|null $navigationIcon = 'bootstrap-bi-capsule';
+    protected static string|BackedEnum|null $navigationIcon = 'bi-capsule';
 
     protected static ?string $recordTitleAttribute = 'kode_obat';
 

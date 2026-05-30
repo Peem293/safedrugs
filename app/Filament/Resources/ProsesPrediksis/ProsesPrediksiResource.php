@@ -37,9 +37,9 @@ class ProsesPrediksiResource extends Resource
                 TextColumn::make('bulan_tahun_prediksi')
                     ->label('Bulan tahun prediksi'),
                 TextColumn::make('nilai_a')
-                    ->label('Nilai a'),
+                    ->label('Konstanta / Tren Dasar (a)'),
                 TextColumn::make('nilai_b')
-                    ->label('Nilai b'),
+                    ->label('Koefisien Tren Bulanan (b)'),
                 TextColumn::make('hasil_prediksi')
                     ->label('Hasil prediksi'),
                 TextColumn::make('nilai_mape')
