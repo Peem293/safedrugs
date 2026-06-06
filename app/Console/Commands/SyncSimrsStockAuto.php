@@ -2,35 +2,22 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\SyncSimrsStockJob;
 use Illuminate\Console\Command;
-use App\Services\ScraperService; // Mengimpor Service Scraper Anda yang sudah ada
 
 class SyncSimrsStockAuto extends Command
 {
-    // Nama perintah terminal yang akan dipanggil oleh scheduler di routes/console.php
     protected $signature = 'simrs:sync-stock';
-    protected $description = 'Sinkronisasi otomatis harian data stok obat dari SIMRS via Scheduler';
+    protected $description = 'Sinkronisasi otomatis harian data stok obat dari SIMRS via Scheduler (Queue-based)';
 
-    /**
-     * Menginjeksikan ScraperService ke dalam fungsi handle()
-     */
-    public function handle(ScraperService $scraperService)
+    public function handle(): void
     {
-        $this->info('=== Memulai Sinkronisasi Otomatis SIMRS via Scheduler ===');
+        $this->info('=== Mengirim Job Sinkronisasi SIMRS ke Queue ===');
 
-        // Menggunakan kredensial riil yang sama persis dengan tombol manual Anda
-        $usernameSimrs = '020150702';
-        $passwordSimrs = 'Nuel.1310';
+        // User ID 1 = Admin utama (penerima notifikasi untuk job terjadwal)
+        SyncSimrsStockJob::dispatch(1);
 
-        // Mengeksekusi robot scraper yang sudah Anda bangun di Service Class
-        $respon = $scraperService->ambilDataSimrs($usernameSimrs, $passwordSimrs);
-
-        // Memberikan output log/feedback di terminal server atau log cron job
-        if (isset($respon['status']) && $respon['status'] === 'sukses') {
-            $this->info('Sinkronisasi otomatis berhasil! Seluruh data stok terupdate.');
-        } else {
-            $errorMsg = $respon['error'] ?? 'Koneksi ke SIMRS terputus.';
-            $this->error('Sinkronisasi otomatis gagal. Kendala: ' . $errorMsg);
-        }
+        $this->info('✅ Job SyncSimrsStockJob berhasil dikirim ke antrean.');
+        $this->info('   Worker queue akan memproses scraping di latar belakang.');
     }
 }

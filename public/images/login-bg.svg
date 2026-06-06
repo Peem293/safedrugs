@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 810" width="100%" height="100%">
+    <defs>
+        <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#F9FAFB" />
+            <stop offset="100%" stop-color="#FEF3C7" />
+        </linearGradient>
+
+        <linearGradient id="blob-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FBBF24" stop-opacity="0.22" />
+            <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.04" />
+        </linearGradient>
+    </defs>
+
+    <rect width="1440" height="810" fill="url(#bg-gradient)" />
+
+    <circle cx="100" cy="700" r="280" fill="url(#blob-gradient)" />
+    <circle cx="260" cy="750" r="150" fill="url(#blob-gradient)" />
+
+    <g transform="translate(120, 520)" opacity="0.15" stroke="#F59E0B" stroke-width="2.5"
+        fill="none">
+        <path d="M 0 30 L 60 30 M 30 0 L 30 60" stroke-width="8" stroke-linecap="round" />
+        <circle cx="30" cy="30" r="45" stroke-width="3" />
+    </g>
+
+    <g stroke="#E5E7EB" stroke-width="1.5" stroke-dasharray="5 5" opacity="0.6">
+        <line x1="1150" y1="0" x2="1150" y2="350" />
+        <line x1="1250" y1="0" x2="1250" y2="350" />
+        <line x1="1350" y1="0" x2="1350" y2="350" />
+        <line x1="1050" y1="80" x2="1440" y2="80" />
+        <line x1="1050" y1="180" x2="1440" y2="180" />
+        <line x1="1050" y1="280" x2="1440" y2="280" />
+    </g>
+
+    <circle cx="1300" cy="100" r="90" fill="url(#blob-gradient)" />
+
+    <text x="720" y="740" font-family="Arial, sans-serif" font-size="12" font-weight="500"
+        fill="#9CA3AF" text-anchor="middle" letter-spacing="0.5">
+        © 2026 SafeDrugs — Sistem Informasi Perencanaan Obat
+    </text>
+</svg>

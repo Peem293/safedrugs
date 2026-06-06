@@ -19,22 +19,34 @@ class StatsOverview extends BaseWidget
         // 1. Menghitung Total Jenis Master Data Obat
         $totalObat = Obat::count();
 
-        // 2. Menghitung Rata-rata Akurasi MAPE untuk Hasil Prediksi Periode Juni 2026
-        $rataMape = Prediksi::where('bulan_tahun_prediksi', '2026-06')->avg('nilai_mape');
+        // 2. Menghitung Rata-rata Akurasi MAPE untuk Hasil Prediksi Periode Dinamis
+        $bulanIni = Carbon::now()->format('Y-m');
+        $periodeTerpilih = $bulanIni;
+        $rataMape = Prediksi::where('bulan_tahun_prediksi', $bulanIni)->avg('nilai_mape');
+        
+        if (!$rataMape) {
+            $latestPrediksi = Prediksi::orderBy('bulan_tahun_prediksi', 'desc')->first();
+            if ($latestPrediksi) {
+                $periodeTerpilih = $latestPrediksi->bulan_tahun_prediksi;
+                $rataMape = Prediksi::where('bulan_tahun_prediksi', $periodeTerpilih)->avg('nilai_mape');
+            }
+        }
+
         $displayMape = $rataMape ? round($rataMape, 2) . '%' : '0%';
+        $namaBulan = $rataMape ? Carbon::parse($periodeTerpilih)->translatedFormat('F Y') : '';
 
         $warnaMape = 'gray';
         $deskripsiMape = 'Belum Ada Data Kalkulasi';
         if ($rataMape) {
             if ($rataMape < 10) {
                 $warnaMape = 'success';
-                $deskripsiMape = 'Kriteria Performa: Sangat Baik';
+                $deskripsiMape = "Kriteria Performa: Sangat Baik ({$namaBulan})";
             } elseif ($rataMape <= 20) {
                 $warnaMape = 'info';
-                $deskripsiMape = 'Kriteria Performa: Baik';
+                $deskripsiMape = "Kriteria Performa: Baik ({$namaBulan})";
             } else {
                 $warnaMape = 'warning';
-                $deskripsiMape = 'Kriteria Performa: Cukup';
+                $deskripsiMape = "Kriteria Performa: Cukup ({$namaBulan})";
             }
         }
 
@@ -65,13 +77,13 @@ class StatsOverview extends BaseWidget
 
         return [
             Stat::make('Total Item Obat', $totalObat . ' Produk')
-                ->description('Lihat semua daftar master data terdaftar')
+                ->description('Lihat daftar master data obat')
                 ->descriptionIcon('heroicon-m-squares-2x2')
                 ->color('info')
                 ->url(url('/admin/obats')), // Tautan ke halaman master obat
 
             Stat::make('Obat Stok Kritis', $stokKritis . ' Item')
-                ->description($stokKritis > 0 ? 'Segera lakukan pengadaan sediaan! ⚠' : 'Semua kuantitas sediaan aman')
+                ->description($stokKritis > 0 ? 'Segera lakukan pengadaan! ⚠' : 'Semua kuantitas sediaan aman')
                 ->descriptionIcon('heroicon-m-exclamation-triangle')
                 ->color($stokKritis > 0 ? 'danger' : 'success')
                 /**

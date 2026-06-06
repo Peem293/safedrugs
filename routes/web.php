@@ -11,7 +11,7 @@ use App\Models\StockOnhand;
 
 
 Route::get('/', function () {
-    return filament('admin/login');
+    return redirect('/admin');
 });
 
 // Route untuk menangani cetak PDF secara Report Prediksi

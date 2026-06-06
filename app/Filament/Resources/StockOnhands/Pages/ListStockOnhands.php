@@ -3,10 +3,11 @@
 namespace App\Filament\Resources\StockOnhands\Pages;
 
 use App\Filament\Resources\StockOnhands\StockOnhandResource;
-use App\Services\ScraperService;
+use App\Jobs\SyncSimrsStockJob;
 use Filament\Actions\Action;
-use Filament\Resources\Pages\ListRecords;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\ListRecords;
+use Illuminate\Support\Facades\Auth;
 
 class ListStockOnhands extends ListRecords
 {
@@ -21,37 +22,26 @@ class ListStockOnhands extends ListRecords
                 ->color('success')
                 ->requiresConfirmation()
                 ->modalHeading('Sinkronisasi Data SIMRS')
-                ->modalDescription('Sistem akan menjalankan robot otomatisasi (Scraper) untuk mengambil data batch dan stok terbaru langsung dari SIMRS. Proses ini mungkin memakan waktu beberapa saat. Lanjutkan?')
+                ->modalDescription('Sistem akan mengirimkan perintah ke robot otomatisasi (Scraper) untuk mengambil data batch & stok terbaru dari SIMRS. Proses berjalan di latar belakang — Anda akan mendapat notifikasi saat selesai.')
                 ->modalSubmitActionLabel('Ya, Mulai Sinkronisasi')
-                ->action(function (ScraperService $scraperService) {
-                    $usernameSimrs = '020150702';
-                    $passwordSimrs = 'Nuel.1310';
-                    $respon = $scraperService->ambilDataSimrs($usernameSimrs, $passwordSimrs);
+                ->action(function () {
+                    // Dispatch ke queue — tidak memblokir browser/HTTP thread
+                    SyncSimrsStockJob::dispatch(Auth::id());
 
-                    // Memeriksa status akhir eksekusi scraper
-                    // Memeriksa status akhir eksekusi scraper
-                    if (isset($respon['status']) && $respon['status'] === 'sukses') {
-                        Notification::make()
-                            ->title('Sinkronisasi Berhasil!')
-                            ->body('Seluruh data batch obat telah diperbarui, dan total stok master obat otomatis dikalkulasi ulang.') // GANTI DISINI (description -> body)
-                            ->success()
-                            ->send();
-                    }else {
-                        Notification::make()
-                            ->title('Sinkronisasi Gagal')
-                            ->description('Terjadi kendala: ' . ($respon['error'] ?? 'Koneksi ke SIMRS terputus.'))
-                            ->danger()
-                            ->persistent()
-                            ->send();
-                    }
+                    Notification::make()
+                        ->title('🔄 Sinkronisasi Dimulai!')
+                        ->body('Robot scraper sedang berjalan di latar belakang. Anda akan mendapat notifikasi otomatis saat proses selesai.')
+                        ->info()
+                        ->duration(8000)
+                        ->send();
                 }),
 
-        Action::make('cetak_report')
-            ->label('Cetak Laporan Stock')
-            ->color('danger')
-            ->icon('heroicon-o-printer')
-            ->url(route('admin.stock-onhands.cetak'))
-            ->openUrlInNewTab(),
+            Action::make('cetak_report')
+                ->label('Cetak Laporan Stock')
+                ->color('danger')
+                ->icon('heroicon-o-printer')
+                ->url(route('admin.stock-onhands.cetak'))
+                ->openUrlInNewTab(),
         ];
     }
 }
