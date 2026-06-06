@@ -15,7 +15,8 @@ Route::get('/', function () {
 });
 
 // Route untuk menangani cetak PDF secara Report Prediksi
-Route::get('/admin/proses-prediksis/cetak/{bulan}', function ($bulan) {
+// Route untuk menangani cetak PDF secara Report Prediksi
+Route::get('/admin/proses-prediksis/cetak/{bulan}/{filename?}', function ($bulan, $filename = null) {
     // 1. Ambil data prediksi beserta relasi tabel obat
     $hasilPrediksi = Prediksi::with('obat')
                         ->where('bulan_tahun_prediksi', $bulan)
@@ -39,8 +40,9 @@ Route::get('/admin/proses-prediksis/cetak/{bulan}', function ($bulan) {
     $pdf = Pdf::loadView('pdf.laporan-prediksi', $data)->setPaper('a4', 'landscape');
 
     // Format penamaan file otomatis saat user klik tombol Download di browser
-    // Nilai variabel $bulan akan dikonversi menjadi nama bulan bahasa Inggris/Indonesia (Contoh: "April 2026")
-    $namaFileOtomatis = 'forcasting Report ' . $bulanTeks;
+    Carbon::setLocale('id');
+    $namaBulan = Carbon::parse($bulan)->translatedFormat('F');
+    $namaFileOtomatis = 'Laporan Prediksi Bulan ' . $namaBulan;
 
     // 4. Stream langsung ke browser tab halaman cetak preview otomatis
     return response($pdf->output())
@@ -49,7 +51,7 @@ Route::get('/admin/proses-prediksis/cetak/{bulan}', function ($bulan) {
 })->name('admin.prediksi.cetak')->middleware(['auth']);
 
  // Route Cetak aporan StockOnHands
-Route::get('/admin/stock-onhands/cetak', function () {
+Route::get('/admin/stock-onhands/cetak/{filename?}', function ($filename = null) {
     //Ambil data stock on hand lengkap beserta relasi datatable obatnya
     $stockData = StockOnhand::with('obat')
                     ->orderBy('exp_date', 'asc')

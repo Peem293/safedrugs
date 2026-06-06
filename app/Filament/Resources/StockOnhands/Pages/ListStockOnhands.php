@@ -40,7 +40,12 @@ class ListStockOnhands extends ListRecords
                 ->label('Cetak Laporan Stock')
                 ->color('danger')
                 ->icon('heroicon-o-printer')
-                ->url(route('admin.stock-onhands.cetak'))
+                ->url(function () {
+                    \Carbon\Carbon::setLocale('id');
+                    $tanggalCetak = \Carbon\Carbon::now()->translatedFormat('d F Y');
+                    $filename = 'Stock On Hands Report ' . $tanggalCetak . '.pdf';
+                    return route('admin.stock-onhands.cetak', ['filename' => $filename]);
+                })
                 ->openUrlInNewTab(),
         ];
     }

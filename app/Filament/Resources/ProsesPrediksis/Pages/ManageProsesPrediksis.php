@@ -74,7 +74,16 @@ class ManageProsesPrediksis extends ListRecords
                 // LANGKAH AMAN: Mengarahkan langsung ke URL route khusus cetak
                 ->url(function () {
                     $bulanActive = session('tampilkan_bulan_prediksi');
-                    return $bulanActive ? route('admin.prediksi.cetak', ['bulan' => $bulanActive]) : '#';
+                    if (! $bulanActive) {
+                        return '#';
+                    }
+                    Carbon::setLocale('id');
+                    $namaBulan = Carbon::parse($bulanActive)->translatedFormat('F');
+                    $filename = 'Laporan Prediksi Bulan ' . $namaBulan . '.pdf';
+                    return route('admin.prediksi.cetak', [
+                        'bulan' => $bulanActive,
+                        'filename' => $filename
+                    ]);
                 })
                 // Mencegah halaman utama refresh/kosong kembali & memaksa buka tab baru
                 ->openUrlInNewTab(),
