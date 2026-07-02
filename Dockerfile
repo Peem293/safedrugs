@@ -1,17 +1,14 @@
-# Gunakan versi yang lebih stabil jika 8.4-fpm-alpine mengalami masalah update
-FROM php:8.4-fpm-alpine
+# Menggunakan versi Debian yang lebih kompatibel dengan banyak paket
+FROM php:8.4-fpm
 
-# Update repository dan install dependensi dalam satu baris untuk menghindari cache error
-RUN apk update && \
-    apk add --no-cache \
+# Update dan install menggunakan apt-get (standar Debian/Ubuntu)
+RUN apt-get update && apt-get install -y \
     libpq-dev \
     libzip-dev \
     zip \
     unzip \
-    git
-
-# Install ekstensi PHP
-RUN docker-php-ext-install pdo pdo_pgsql zip
+    git \
+    && docker-php-ext-install pdo pdo_pgsql zip
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -19,7 +16,6 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 COPY . .
 
-# Set permission
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
 EXPOSE 9000
