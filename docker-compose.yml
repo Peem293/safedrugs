@@ -4,6 +4,14 @@ services:
     container_name: safedrugs-app
     volumes:
       - .:/var/www/html
+    environment:
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=safedrugs_db
+      - DB_USERNAME=user
+      - DB_PASSWORD=password
+      - APP_KEY=base64:c29tZXJhbmRvbWtleXRoYXR5b3VzaG91bGRjaGFuZ2U=
     networks:
       - safedrugs-network
 
