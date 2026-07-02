@@ -1,27 +1,34 @@
-FROM php:8.4-fpm
+FROM php:8.2-fpm-alpine
 
-RUN apt-get update && apt-get install -y \
+# Install system dependencies & PHP extensions yang dibutuhkan Laravel/PostgreSQL
+RUN apk update && apk add --no-cache \
     libpq-dev \
-    libzip-dev \
-    libicu-dev \
     libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
     zip \
     unzip \
     git \
+    curl \
+    && docker-php-ext-install pdo pdo_pgsql
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_pgsql zip intl gd
 
+# Ambil Composer resmi
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
+
+# Copy seluruh source code project dari Git ke dalam container
 COPY . .
 
-# HAPUS/COMMENT baris di bawah ini agar build sukses
-# RUN composer install --no-dev --optimize-autoloader
+# Install dependencies vendor secara otomatis saat build
+RUN composer install --no-dev --optimize-autoloader
 
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# Buat folder yang sering hilang di Git & buka permission-nya secara otomatis
+RUN mkdir -p storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    && chmod -R 775 storage bootstrap/cache public \
+    && chown -R www-data:www-data /var/www/html
 
 EXPOSE 9000
 CMD ["php-fpm"]

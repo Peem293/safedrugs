@@ -1,9 +1,10 @@
+version: '3.8'
+
 services:
   app:
     build: .
     container_name: safedrugs-app
-    # volumes:
-    #   - .:/var/www/html
+    # KUNCI UTAMA: Hapus atau matikan bagian volumes jika ada di sini!
     environment:
       - DB_CONNECTION=pgsql
       - DB_HOST=db
@@ -11,7 +12,6 @@ services:
       - DB_DATABASE=safedrugs_db
       - DB_USERNAME=postgres
       - DB_PASSWORD=postgres
-      - APP_KEY=base64:c29tZXJhbmRvbWtleXRoYXR5b3VzaG91bGRjaGFuZ2U=
     networks:
       - safedrugs-network
 
@@ -20,12 +20,10 @@ services:
     container_name: safedrugs-web
     ports:
       - "8081:80"
-    volumes:
-      - .:/var/www/html
-    # Konfigurasi Nginx langsung dibuat di dalam container saat start
-    command: /bin/sh -c "echo 'server { listen 80; root /var/www/html/public; index index.php; location / { try_files \$$uri \$$uri/ /index.php?\$$query_string; } location ~ \.php$ { fastcgi_pass app:9000; fastcgi_index index.php; include fastcgi_params; fastcgi_param SCRIPT_FILENAME \$$document_root\$$fastcgi_script_name; } }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
-    depends_on:
+    # Di sisi web server, kita hanya menembak volume dari container app (volumes_from)
+    volumes_from:
       - app
+    command: /bin/sh -c "echo 'server { listen 80; root /var/www/html/public; index index.php; location / { try_files \$$uri \$$uri/ /index.php?\$$query_string; } location ~ \.php$ { fastcgi_pass app:9000; fastcgi_index index.php; include fastcgi_params; fastcgi_param SCRIPT_FILENAME \$$document_root\$$fastcgi_script_name; } }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
     networks:
       - safedrugs-network
 
@@ -37,9 +35,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - safedrugs-db-data:/var/lib/postgresql/data
     networks:
       - safedrugs-network
 
@@ -48,4 +46,4 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  safedrugs-db-data:
