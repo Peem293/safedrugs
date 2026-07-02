@@ -9,8 +9,8 @@ services:
       - DB_HOST=db
       - DB_PORT=5432
       - DB_DATABASE=safedrugs_db
-      - DB_USERNAME=user
-      - DB_PASSWORD=password
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
       - APP_KEY=base64:c29tZXJhbmRvbWtleXRoYXR5b3VzaG91bGRjaGFuZ2U=
     networks:
       - safedrugs-network
