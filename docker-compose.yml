@@ -1,15 +1,13 @@
 services:
   # Container Aplikasi (PHP-FPM)
   app:
-    build:
-      context: .
+    build: .
     container_name: safedrugs-app
     volumes:
       - .:/var/www/html
     networks:
       - safedrugs-network
 
-  # Container Web Server (Nginx)
   web:
     image: nginx:alpine
     container_name: safedrugs-web
@@ -17,7 +15,7 @@ services:
       - "8081:80"
     volumes:
       - .:/var/www/html
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
     networks:
