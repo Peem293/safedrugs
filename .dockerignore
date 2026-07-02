@@ -5,6 +5,4 @@ node_modules/
 storage/framework/cache/
 storage/framework/views/
 storage/logs/
-Dockerfile
-docker-compose.yml
-nginx.conf
+*.md

@@ -1,5 +1,4 @@
 services:
-  # Container Aplikasi (PHP-FPM)
   app:
     build: .
     container_name: safedrugs-app
@@ -15,15 +14,15 @@ services:
       - "8081:80"
     volumes:
       - .:/var/www/html
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    # Konfigurasi Nginx langsung dibuat di dalam container saat start
+    command: /bin/sh -c "echo 'server { listen 80; root /var/www/html/public; index index.php; location / { try_files \$$uri \$$uri/ /index.php?\$$query_string; } location ~ \.php$ { fastcgi_pass app:9000; fastcgi_index index.php; include fastcgi_params; fastcgi_param SCRIPT_FILENAME \$$document_root\$$fastcgi_script_name; } }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
     depends_on:
       - app
     networks:
       - safedrugs-network
 
-  # Container Database (PostgreSQL)
   db:
-    image: postgres:15
+    image: postgres:16-alpine
     container_name: safedrugs-db
     environment:
       POSTGRES_DB: safedrugs_db
